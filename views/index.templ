@@ -1,0 +1,148 @@
+package views
+
+import "github.com/floj/serializer-go/model"
+import "strconv"
+import "fmt"
+
+func latestStory(stories []model.Story) string {
+	if len(stories) == 0 {
+		return "0"
+	}
+	return strconv.FormatInt(stories[0].ID, 10)
+}
+
+func earliestUnreadStory(stories []model.Story, last int64) int64 {
+	id := int64(-1)
+	for _, s := range stories {
+		if s.ID >= last {
+			id = s.ID
+			continue
+		}
+		return id
+	}
+	return id
+}
+
+func unreadCount(stories []model.Story, last int64) int {
+	i := 0
+	for _, s := range stories {
+		if s.ID <= last {
+			continue
+		}
+		i++
+	}
+	return i
+}
+
+templ Index(stories []model.Story, last int64, unread int) {
+	<!DOCTYPE html>
+	<html lang="en">
+		<head>
+			<title>
+				if unread > 0 {
+					{ strconv.Itoa(unread) } - 
+				}
+				serializer.go
+			</title>
+			<meta charset="UTF-8"/>
+			<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"/>
+			// <script src={ "assets/js/htmx.min.js" }></script>
+			<link rel="icon" href={ "assets/favicon.svg" }/>
+			<link rel="stylesheet" href={ "assets/index.css" } media="all"/>
+			<script src="assets/index.js" defer></script>
+		</head>
+		<body>
+			@Menu()
+			@Stories(stories, last, unread)
+			// <p class="credits">This is a cheap clone of the more powerful <a href="https://serializer.io">serializer.io</a> by charlieegan3, all credit goes to him.</p>
+			<style type="text/css">@import url(https://fonts.googleapis.com/css?family=VT323);</style>
+		</body>
+	</html>
+}
+
+templ Menu() {
+	<div class="menu">
+		<div id="menu-container">
+			<span class="logo"><a href="/">serializer-go</a></span>
+			// <span id="settings-toggle">
+			// 	<a href="#/">menu</a>
+			// </span>
+		</div>
+	</div>
+}
+
+templ Stories(stories []model.Story, last int64, unread int) {
+	<a href="#" class={ "jump-to-unread", templ.KV("hidden", unread ==0) }>
+		<span class="tick">↓ </span><span class="message">Jump to unread</span>
+	</a>
+	<div id="stories">
+		<form action="/" method="post" class={ "log-button", templ.KV("catched-up", unread == 0) }>
+			<input type="hidden" name="last" value={ latestStory(stories) }/>
+			<button class="mark-read">
+				<span class="tick">✓ </span>
+				<span class="message">
+					if unread > 0 {
+						Mark all { strconv.Itoa(unread) } as read
+					} else {
+						All Marked as Read
+					}
+				</span>
+			</button>
+		</form>
+		<table id="item-table">
+			<tbody>
+				for _, s := range stories {
+					@Story(s, last)
+				}
+			</tbody>
+		</table>
+	</div>
+}
+
+templ SettingsPanel() {
+	<div class="hidden" id="settings-panel">
+		<p>Selected sources (click to toggle)</p>
+		<a class="source-toggle" title="Toggle Source" data="hacker_news" href="#"><img height="20" width="20" class="icon" src="/images/hacker_news.jpg"/></a>
+		<a class="source-toggle" title="Toggle Source" data="reddit" href="#"><img height="20" width="20" class="icon" src="/images/reddit.jpg"/></a>
+		<a class="source-toggle" title="Toggle Source" data="lobsters" href="#"><img height="20" width="20" class="icon" src="/images/lobsters.jpg"/></a>
+		<a class="source-toggle" title="Toggle Source" data="macrumors" href="#"><img height="20" width="20" class="icon" src="/images/macrumors.jpg"/></a>
+		<a class="source-toggle" title="Toggle Source" data="arstechnica" href="#"><img height="20" width="20" class="icon" src="/images/arstechnica.jpg"/></a>
+		<p>Sync session with unique link</p>
+		<p><a class="session-button default" href="/chosentree">serializer.io/chosentree</a></p>
+		<p class="mtop">
+			<a class="session-button green" id="set-link-opening" href="/#/">Open Links in New Tab</a>
+			<a class="session-button clear" id="clear-session" href="/#/">Clear Session</a>
+		</p>
+		// <p class="mtop">
+		// 	Made by<a target="_blank" href="https://charlieegan3.com">charlieegan3.com</a>
+		// </p>
+	</div>
+}
+
+templ Story(story model.Story, last int64) {
+	<tr class={ templ.KV("read", story.ID <= last) }>
+		<td>
+			<a href={ templ.URL(story.SearchURL()) }>
+				<img
+					class="icon"
+					width="20"
+					height="20"
+					src={ "assets/images/" + story.Scraper + ".svg" }
+				/>
+			</a>
+		</td>
+		<td>
+			<h2 class="item-title">
+				<a href={ templ.URL(story.LinkURL()) } target="_self">{ story.Title }</a>
+			</h2>
+			if story.Domain() != "" {
+				<span class="domain">&nbsp;({ story.Domain() })</span>
+			}
+			<br/>
+			<span class="muted">
+				<img class="clock-icon" src="assets/images/clock.svg" width="10"/>{ story.TimeAgo() }
+				<span><a class="comments-link" href={ templ.URL(story.CommentsURL()) } target="_self">{ fmt.Sprintf("%d", story.NumComments) } comments</a></span>
+			</span>
+		</td>
+	</tr>
+}

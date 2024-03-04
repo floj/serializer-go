@@ -1,0 +1,6 @@
+terraform
+.git
+serializer*.db
+.envrc
+modd.conf
+build.sh

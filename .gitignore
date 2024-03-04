@@ -1,0 +1,6 @@
+serializer*.db
+serializer-go
+*_templ.go
+*.sql.go
+.envrc
+re-deploy.sh

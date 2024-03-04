@@ -1,0 +1,17 @@
+<svg
+    xmlns="http://www.w3.org/2000/svg"
+    viewBox="0 0 16 16"
+    width="48"
+    height="48"
+    style="background-color: none;">
+    <text
+        x="50%"
+        y="58%"
+        fill="black"
+        font-size="10px"
+        font-family="sans-serif"
+        text-anchor="middle"
+        dominant-baseline="middle">
+        SL
+    </text>
+</svg>
