@@ -8,11 +8,18 @@ import (
 	"sync"
 	"time"
 
+	"github.com/floj/serializer-go/config"
 	"github.com/floj/serializer-go/model"
 	"github.com/floj/serializer-go/scraper"
 )
 
-func Start(db *sql.DB, interval time.Duration, scrapers ...scraper.Scraper) (func(func(Result, error) error) error, func()) {
+func Start(db *sql.DB, conf config.Config, scrapers ...scraper.Scraper) (func(func(Result, error) error) error, func()) {
+	// restrict interval to be at max every minute
+	interval := max(conf.ScrapeInterval, time.Minute)
+	if !conf.ScrapeEnabled() {
+		interval = time.Hour * 24
+	}
+
 	ticker := time.NewTicker(interval)
 	quit := make(chan struct{})
 	mu := &sync.Mutex{}
@@ -21,7 +28,9 @@ func Start(db *sql.DB, interval time.Duration, scrapers ...scraper.Scraper) (fun
 		for {
 			select {
 			case <-ticker.C:
-				runScrape(db, mu, scrapers...)
+				if conf.ScrapeEnabled() {
+					runScrape(db, mu, scrapers...)
+				}
 			case <-quit:
 				ticker.Stop()
 				return

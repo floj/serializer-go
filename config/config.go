@@ -11,6 +11,10 @@ type Config struct {
 	CookieSecure   bool
 }
 
+func (c *Config) ScrapeEnabled() bool {
+	return c.ScrapeInterval > time.Duration(0)
+}
+
 func Create(dbURI, scrape string, cookieSecure bool) (Config, error) {
 	c := Config{
 		DBURI:        dbURI,

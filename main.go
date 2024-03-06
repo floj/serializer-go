@@ -36,7 +36,7 @@ func envOrDefault(name, def string) string {
 func main() {
 	//dbFile := flag.String("database-file", envOrDefault("DATABASE_FILE", "serializer.db"), "path to the database file")
 	dbURL := flag.String("db-uri", envOrDefault("DB_URI", ""), "connection uri for the DB")
-	scrapeInterval := flag.String("scrape-interval", envOrDefault("SCRAPE_INTERVAL", "1m"), "how often to scrape")
+	scrapeInterval := flag.String("scrape-interval", envOrDefault("SCRAPE_INTERVAL", "1m"), "how often to scrape, set to 0 to disable scrape job")
 	cookieInsecure := flag.Bool("cookie-insecure", false, "set secure flag on cookie")
 	flag.Parse()
 
@@ -78,16 +78,21 @@ func run(conf config.Config) error {
 		return err
 	}
 
-	trigger, stopJob := job.Start(db, conf.ScrapeInterval, scrapers...)
+	trigger, stopJob := job.Start(db, conf, scrapers...)
 	defer stopJob()
-	trigger(func(r job.Result, err error) error {
-		if err != nil {
-			slog.Error("failed to scrape", "err", err)
+
+	if conf.ScrapeEnabled() {
+		go trigger(func(r job.Result, err error) error {
+			if err != nil {
+				slog.Error("failed to scrape", "err", err)
+				return nil
+			}
+			slog.Info("scrape success", "new", r.New, "updated", r.Updated)
 			return nil
-		}
-		slog.Info("scrape success", "new", r.New, "updated", r.Updated)
-		return nil
-	})
+		})
+	} else {
+		slog.Info("scraping disabled")
+	}
 
 	app := echo.New()
 	app.Use(
