@@ -1,5 +1,5 @@
 -- name: ListStoriesBeginningAt :many
-SELECT * FROM stories WHERE id >= $1 ORDER BY id desc;
+SELECT * FROM stories WHERE id >= $1 ORDER BY id desc LIMIT 1000;
 
 -- name: UpdateStory :one
 UPDATE stories SET 
