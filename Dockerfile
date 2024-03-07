@@ -1,7 +1,7 @@
 FROM --platform=${BUILDPLATFORM} golang:1-alpine as builder
 ARG TARGETOS
 ARG TARGETARCH
-ENV CGO_ENABLED=0 GOEXPERIMENT=loopvar GOOS=${TARGETOS} GOARCH=${TARGETARCH}
+ENV CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH}
 
 RUN apk add --no-cache git
 
@@ -11,7 +11,7 @@ RUN go mod download
 
 COPY . /app
 
-RUN --mount=type=cache,target=/root/.cache/go-build \
+RUN --mount=type=cache,target=/root/go \
   go install github.com/a-h/templ/cmd/templ@latest && \
   go install github.com/sqlc-dev/sqlc/cmd/sqlc@latest
 
