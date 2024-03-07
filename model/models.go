@@ -14,10 +14,20 @@ type Story struct {
 	Url         string
 	By          string
 	CreatedAt   time.Time
+	UpdatedAt   time.Time
 	ScrapedAt   time.Time
 	Title       string
 	Type        string
 	Score       int32
 	NumComments int32
 	Scraper     string
+}
+
+type StoryHistory struct {
+	ID        int64
+	StoryID   int64
+	Field     string
+	OldVal    string
+	NewVal    string
+	CreatedAt time.Time
 }

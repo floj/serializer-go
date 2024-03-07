@@ -48,6 +48,14 @@ type Result struct {
 	New     int
 	Updated int
 	Errors  int
+	err     []error
+}
+
+func (r *Result) Add(other Result) {
+	r.New += other.New
+	r.Updated += other.Updated
+	r.err = append(r.err, other.err...)
+	r.Errors = len(r.err)
 }
 
 func runScrape(db *sql.DB, mu *sync.Mutex, scrapers ...scraper.Scraper) (Result, error) {
@@ -56,69 +64,137 @@ func runScrape(db *sql.DB, mu *sync.Mutex, scrapers ...scraper.Scraper) (Result,
 
 	result := Result{}
 	ctx := context.Background()
-	errs := []error{}
+	queries := model.New(db)
+
 	for _, scraper := range scrapers {
-		items, err := scraper.FetchItems(ctx)
+		res := runScraper(ctx, scraper, queries)
+		result.Add(res)
+	}
+	if len(result.err) > 0 {
+		return result, errors.Join(result.err...)
+	}
+	return result, nil
+}
+
+func runScraper(ctx context.Context, scr scraper.Scraper, queries *model.Queries) Result {
+	scrapeTime := time.Now()
+	result := Result{}
+
+	items, err := scr.FetchItems(ctx)
+	if err != nil {
+		result.err = append(result.err, err)
+		return result
+	}
+
+	for _, itm := range items {
+		existing, err := queries.FindByScraperAndRef(ctx, model.FindByScraperAndRefParams{
+			Scraper: itm.Scraper,
+			RefID:   itm.RefID,
+		})
 		if err != nil {
-			errs = append(errs, err)
+			slog.Error("could not lookup story", "refid", itm.RefID, "scraper", itm.Scraper, "err", err)
 			continue
 		}
 
-		queries := model.New(db)
+		if len(existing) > 0 {
+			for _, story := range existing {
 
-		for _, itm := range items {
-			existing, err := queries.FindByScraperAndRef(ctx, model.FindByScraperAndRefParams{
-				Scraper: itm.Scraper,
-				RefID:   itm.RefID,
-			})
-			if err != nil {
-				slog.Error("could not lookup story", "refid", itm.RefID, "scraper", itm.Scraper, "err", err)
-				continue
-			}
-			if len(existing) > 0 {
-				for _, s := range existing {
-					s, err := queries.UpdateStory(ctx, model.UpdateStoryParams{
-						Title:       itm.Title,
-						Url:         itm.Url,
-						Score:       itm.Score,
-						NumComments: itm.NumComments,
-						ID:          s.ID,
-						Type:        itm.Type,
-					})
-					if err != nil {
-						errs = append(errs, err)
-						result.Errors++
-						continue
-					}
-					result.Updated++
-					slog.Info("updated story", "story", s)
-				}
-			} else {
-				s, err := queries.CreateStory(ctx, model.CreateStoryParams{
-					RefID:       itm.RefID,
-					Url:         itm.Url,
-					By:          itm.By,
-					CreatedAt:   itm.CreatedAt,
-					ScrapedAt:   itm.CreatedAt,
+				diff := story.Diff(itm)
+
+				story, err = queries.UpdateStory(ctx, model.UpdateStoryParams{
 					Title:       itm.Title,
-					Type:        itm.Type,
+					Url:         itm.Url,
 					Score:       itm.Score,
 					NumComments: itm.NumComments,
-					Scraper:     itm.Scraper,
+					ID:          story.ID,
+					UpdatedAt:   scrapeTime,
+					Type:        itm.Type,
 				})
 				if err != nil {
-					errs = append(errs, err)
-					result.Errors++
+					result.err = append(result.err, err)
 					continue
 				}
-				result.New++
-				slog.Info("created new story", "story", s)
+
+				for k, v := range diff {
+					queries.CreateStoryHistory(ctx, model.CreateStoryHistoryParams{
+						StoryID:   story.ID,
+						Field:     k,
+						OldVal:    v.Old,
+						NewVal:    v.New,
+						CreatedAt: scrapeTime,
+					})
+				}
+				result.Updated++
+				slog.Info("updated story", "story", story)
 			}
+		} else {
+			story, err := queries.CreateStory(ctx, model.CreateStoryParams{
+				RefID:       itm.RefID,
+				Url:         itm.Url,
+				By:          itm.By,
+				CreatedAt:   itm.CreatedAt,
+				ScrapedAt:   scrapeTime,
+				UpdatedAt:   scrapeTime,
+				Title:       itm.Title,
+				Type:        itm.Type,
+				Score:       itm.Score,
+				NumComments: itm.NumComments,
+				Scraper:     itm.Scraper,
+			})
+			if err != nil {
+				result.err = append(result.err, err)
+				continue
+			}
+			result.New++
+			slog.Info("created new story", "story", story)
+		}
+	}
+
+	// update recent stories that are not on the frontpage anymore
+	stories, err := queries.FindRecentForUpdate(ctx, model.FindRecentForUpdateParams{
+		Scraper:   scr.Name(),
+		UpdatedAt: scrapeTime.Add(-15 * time.Minute),
+		CreatedAt: scrapeTime.Add(-24 * time.Hour),
+	})
+	if err != nil {
+		result.err = append(result.err, err)
+		return result
+	}
+	slog.Info("updading recent stories", "num", len(stories))
+
+	for _, story := range stories {
+		itm, err := scr.FetchItem(ctx, story.RefID)
+		if err != nil {
+			result.err = append(result.err, err)
+			continue
+		}
+		diff := story.Diff(itm)
+
+		story, err := queries.UpdateStory(ctx, model.UpdateStoryParams{
+			Title:       itm.Title,
+			Url:         itm.Url,
+			Score:       itm.Score,
+			NumComments: itm.NumComments,
+			ID:          story.ID,
+			UpdatedAt:   scrapeTime,
+			Type:        itm.Type,
+		})
+		if err != nil {
+			result.err = append(result.err, err)
+			continue
 		}
 
+		for k, v := range diff {
+			queries.CreateStoryHistory(ctx, model.CreateStoryHistoryParams{
+				StoryID:   story.ID,
+				Field:     k,
+				OldVal:    v.Old,
+				NewVal:    v.New,
+				CreatedAt: scrapeTime,
+			})
+		}
+		result.Updated++
+		slog.Info("updated story", "story", story)
 	}
-	if len(errs) > 0 {
-		return result, errors.Join(errs...)
-	}
-	return result, nil
+	return result
 }

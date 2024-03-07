@@ -120,3 +120,42 @@ func (h *Hits) HasTag(s string) bool {
 	}
 	return false
 }
+
+type Item struct {
+	Type     string `json:"type"`
+	Children []Item `json:"children"`
+	ObjectID int    `json:"id"`
+	Points   int    `json:"points,omitempty"`
+	StoryID  int    `json:"story_id,omitempty"`
+	Title    string `json:"title"`
+	URL      string `json:"url"`
+}
+
+func (i *Item) NumComments() int {
+	return countComments(i.Children)
+}
+
+func countComments(i []Item) int {
+	if len(i) == 0 {
+		return 0
+	}
+	count := 0
+	for _, e := range i {
+		if e.Type == "comment" {
+			count += 1 + countComments(e.Children)
+		}
+	}
+	return count
+}
+
+// "children": [],
+// "created_at": "2024-01-16T16:55:21.000Z",
+// "created_at_i": 1705424121,
+// "id": 39015524,
+// "options": [],
+// "parent_id": 38978851,
+// "points": null,
+// "story_id": 38978851,
+// "text": "And very silly walks.",
+// "title": null,
+// "type": "comment",

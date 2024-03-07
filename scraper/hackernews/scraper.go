@@ -14,7 +14,8 @@ import (
 	"github.com/floj/serializer-go/model"
 )
 
-const hnURL = "https://hn.algolia.com/api/v1/search?tags=front_page&hitsPerPage=30"
+const hnSearchURL = "https://hn.algolia.com/api/v1/search?tags=front_page&hitsPerPage=30"
+const hnStoryURL = "https://hn.algolia.com/api/v1/items"
 
 type HNScraper struct {
 	httpc *http.Client
@@ -26,12 +27,55 @@ func NewScraper(httpc *http.Client) (*HNScraper, error) {
 	}, nil
 }
 
-func (s *HNScraper) FetchItems(ctx context.Context) ([]model.Story, error) {
-	slog.Info("fetching HN stories", "url", hnURL)
+func (s *HNScraper) Name() string {
+	return model.ScraperHN
+}
+
+func (s *HNScraper) FetchItem(ctx context.Context, refId string) (model.Story, error) {
+	uri := hnStoryURL + "/" + refId
+	slog.Info("fetching HN story", "url", uri)
 	timeoutCtx, cancel := context.WithTimeout(ctx, time.Second*5)
 	defer cancel()
 
-	req, err := http.NewRequestWithContext(timeoutCtx, http.MethodGet, hnURL, nil)
+	req, err := http.NewRequestWithContext(timeoutCtx, http.MethodGet, uri, nil)
+	if err != nil {
+		return model.Story{}, err
+	}
+	resp, err := s.httpc.Do(req)
+	if err != nil {
+		return model.Story{}, err
+	}
+	defer func() {
+		io.Copy(io.Discard, resp.Body)
+		resp.Body.Close()
+	}()
+
+	if resp.StatusCode != 200 {
+		return model.Story{}, fmt.Errorf("request not successful, expected status 200, got %d", resp.StatusCode)
+	}
+
+	itm := Item{}
+	err = json.NewDecoder(resp.Body).Decode(&itm)
+	if err != nil {
+		return model.Story{}, err
+	}
+
+	return model.Story{
+		RefID:       refId,
+		Url:         itm.URL,
+		Title:       itm.Title,
+		Score:       int32(itm.Points),
+		NumComments: int32(itm.NumComments()),
+	}, nil
+}
+
+func (s *HNScraper) FetchItems(ctx context.Context) ([]model.Story, error) {
+	uri := hnSearchURL
+	slog.Info("fetching HN stories", "url", uri)
+	timeoutCtx, cancel := context.WithTimeout(ctx, time.Second*5)
+	defer cancel()
+
+	req, err := http.NewRequestWithContext(timeoutCtx, http.MethodGet, uri, nil)
 	if err != nil {
 		return nil, err
 	}
