@@ -63,7 +63,9 @@ func runScrape(db *sql.DB, mu *sync.Mutex, scrapers ...scraper.Scraper) (Result,
 	defer mu.Unlock()
 
 	result := Result{}
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
 	queries := model.New(db)
 
 	for _, scraper := range scrapers {
