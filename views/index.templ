@@ -132,7 +132,7 @@ templ Story(story model.Story, last int64) {
 			</a>
 		</td>
 		<td>
-			<h2 class="item-title">
+			<h2 class={ "item-title", templ.KV("deleted", story.Deleted) }>
 				<a href={ templ.URL(story.LinkURL()) } target="_self">{ story.Title }</a>
 			</h2>
 			if story.Domain() != "" {
