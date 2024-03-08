@@ -40,7 +40,22 @@ func main() {
 	scrapeInterval := flag.String("scrape-interval", envOrDefault("SCRAPE_INTERVAL", "1m"), "how often to scrape, set to 0 to disable scrape job")
 	scrapeTimeout := flag.String("scrape-timeout", envOrDefault("SCRAPE_TIMEOUT", "1m"), "max time one scrape job is allowed to run set to 0 to for no limit")
 	cookieInsecure := flag.Bool("cookie-insecure", false, "set secure flag on cookie")
+	logLevel := flag.String("log-level", "info", "log level (debug, info, warn, error)")
 	flag.Parse()
+
+	tintOpts := &tint.Options{TimeFormat: time.RFC3339}
+	switch *logLevel {
+	case "debug":
+		tintOpts.Level = slog.LevelDebug
+	case "info":
+		tintOpts.Level = slog.LevelInfo
+	case "warn":
+		tintOpts.Level = slog.LevelWarn
+	case "error":
+		tintOpts.Level = slog.LevelError
+	default:
+		panic("invalid log level: " + *logLevel)
+	}
 
 	conf, err := config.Create(*dbURL, *scrapeInterval, *scrapeTimeout, !*cookieInsecure)
 	if err != nil {
@@ -48,10 +63,7 @@ func main() {
 	}
 
 	slog.SetDefault(slog.New(
-		tint.NewHandler(os.Stderr, &tint.Options{
-			Level:      slog.LevelDebug,
-			TimeFormat: time.Kitchen,
-		}),
+		tint.NewHandler(os.Stderr, tintOpts),
 	))
 
 	if err := run(conf); err != nil {

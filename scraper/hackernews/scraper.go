@@ -33,7 +33,7 @@ func (s *HNScraper) Name() string {
 
 func (s *HNScraper) FetchItem(ctx context.Context, refId string) (model.Story, bool, error) {
 	uri := hnStoryURL + "/" + refId
-	slog.Info("fetching HN story", "url", uri)
+	slog.Debug("fetching HN story", "url", uri)
 	timeoutCtx, cancel := context.WithTimeout(ctx, time.Second*5)
 	defer cancel()
 
@@ -75,7 +75,7 @@ func (s *HNScraper) FetchItem(ctx context.Context, refId string) (model.Story, b
 
 func (s *HNScraper) FetchItems(ctx context.Context) ([]model.Story, error) {
 	uri := hnSearchURL
-	slog.Info("fetching HN stories", "url", uri)
+	slog.Debug("fetching HN stories", "url", uri)
 	timeoutCtx, cancel := context.WithTimeout(ctx, time.Second*5)
 	defer cancel()
 
