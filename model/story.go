@@ -2,7 +2,6 @@ package model
 
 import (
 	"encoding/json"
-	"fmt"
 	"net/url"
 	"strings"
 
@@ -36,33 +35,6 @@ func (s *Story) Domain() string {
 		return host + subpath(u.Path, 1)
 	}
 	return host
-}
-
-type DiffVal struct {
-	Old string
-	New string
-}
-
-func (s *Story) Diff(other Story) map[string]DiffVal {
-	self := s.asMap()
-	oth := other.asMap()
-	diff := map[string]DiffVal{}
-	for k, old := range self {
-		new := oth[k]
-		if old != new {
-			diff[k] = DiffVal{Old: old, New: new}
-		}
-	}
-	return diff
-}
-
-func (s *Story) asMap() map[string]string {
-	return map[string]string{
-		"url":          s.Url,
-		"title":        s.Title,
-		"score":        fmt.Sprintf("%d", s.Score),
-		"num_comments": fmt.Sprintf("%d", s.NumComments),
-	}
 }
 
 func (s *Story) TimeAgo() string {

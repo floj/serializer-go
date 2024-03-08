@@ -13,9 +13,9 @@ type Story struct {
 	RefID       string
 	Url         string
 	By          string
-	CreatedAt   time.Time
+	PublishedAt time.Time
 	UpdatedAt   time.Time
-	ScrapedAt   time.Time
+	CreatedAt   time.Time
 	Title       string
 	Type        string
 	Score       int32

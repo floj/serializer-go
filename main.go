@@ -23,6 +23,7 @@ import (
 	"github.com/floj/serializer-go/views"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
+	"github.com/lmittmann/tint"
 )
 
 func envOrDefault(name, def string) string {
@@ -37,13 +38,21 @@ func main() {
 	//dbFile := flag.String("database-file", envOrDefault("DATABASE_FILE", "serializer.db"), "path to the database file")
 	dbURL := flag.String("db-uri", envOrDefault("DB_URI", ""), "connection uri for the DB")
 	scrapeInterval := flag.String("scrape-interval", envOrDefault("SCRAPE_INTERVAL", "1m"), "how often to scrape, set to 0 to disable scrape job")
+	scrapeTimeout := flag.String("scrape-timeout", envOrDefault("SCRAPE_TIMEOUT", "1m"), "max time one scrape job is allowed to run set to 0 to for no limit")
 	cookieInsecure := flag.Bool("cookie-insecure", false, "set secure flag on cookie")
 	flag.Parse()
 
-	conf, err := config.Create(*dbURL, *scrapeInterval, !*cookieInsecure)
+	conf, err := config.Create(*dbURL, *scrapeInterval, *scrapeTimeout, !*cookieInsecure)
 	if err != nil {
 		panic(err)
 	}
+
+	slog.SetDefault(slog.New(
+		tint.NewHandler(os.Stderr, &tint.Options{
+			Level:      slog.LevelDebug,
+			TimeFormat: time.Kitchen,
+		}),
+	))
 
 	if err := run(conf); err != nil {
 		fmt.Fprintf(os.Stderr, "%v\n", err)

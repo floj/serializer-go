@@ -109,7 +109,6 @@ func (s *HNScraper) FetchItems(ctx context.Context) ([]model.Story, error) {
 	})
 
 	stories := []model.Story{}
-	now := time.Now()
 
 	for _, h := range hits {
 		t := h.GetType()
@@ -123,8 +122,7 @@ func (s *HNScraper) FetchItems(ctx context.Context) ([]model.Story, error) {
 			story := model.Story{
 				By:          h.Author,
 				Url:         h.URL,
-				CreatedAt:   h.CreatedAt,
-				ScrapedAt:   now,
+				PublishedAt: h.CreatedAt,
 				RefID:       strconv.Itoa(h.StoryID),
 				Title:       h.Title,
 				Type:        t,
