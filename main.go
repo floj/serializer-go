@@ -24,6 +24,7 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	"github.com/lmittmann/tint"
+	"github.com/mattn/go-isatty"
 )
 
 func envOrDefault(name, def string) string {
@@ -43,7 +44,11 @@ func main() {
 	logLevel := flag.String("log-level", "info", "log level (debug, info, warn, error)")
 	flag.Parse()
 
-	tintOpts := &tint.Options{TimeFormat: time.RFC3339}
+	logDest := os.Stdout
+	tintOpts := &tint.Options{
+		TimeFormat: time.RFC3339,
+		NoColor:    !isatty.IsTerminal(logDest.Fd()),
+	}
 	switch *logLevel {
 	case "debug":
 		tintOpts.Level = slog.LevelDebug
@@ -63,7 +68,7 @@ func main() {
 	}
 
 	slog.SetDefault(slog.New(
-		tint.NewHandler(os.Stderr, tintOpts),
+		tint.NewHandler(logDest, tintOpts),
 	))
 
 	if err := run(conf); err != nil {
