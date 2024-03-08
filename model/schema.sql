@@ -14,8 +14,8 @@ create table if not exists stories (
   deleted boolean not null default false
 );
 
-create index stories_created_at_idx on stories(created_at);
-create index stories_ref_id_idx on stories(ref_id);
+create index if not exists stories_created_at_idx on stories(created_at);
+create index if not exists stories_ref_id_idx on stories(ref_id);
 
 create table if not exists story_history (
   id bigserial not null primary key,
