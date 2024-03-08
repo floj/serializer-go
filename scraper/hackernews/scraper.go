@@ -31,7 +31,7 @@ func (s *HNScraper) Name() string {
 	return model.ScraperHN
 }
 
-func (s *HNScraper) FetchItem(ctx context.Context, refId string) (model.Story, error) {
+func (s *HNScraper) FetchItem(ctx context.Context, refId string) (model.Story, bool, error) {
 	uri := hnStoryURL + "/" + refId
 	slog.Info("fetching HN story", "url", uri)
 	timeoutCtx, cancel := context.WithTimeout(ctx, time.Second*5)
@@ -39,25 +39,29 @@ func (s *HNScraper) FetchItem(ctx context.Context, refId string) (model.Story, e
 
 	req, err := http.NewRequestWithContext(timeoutCtx, http.MethodGet, uri, nil)
 	if err != nil {
-		return model.Story{}, err
+		return model.Story{}, false, err
 	}
 	resp, err := s.httpc.Do(req)
 	if err != nil {
-		return model.Story{}, err
+		return model.Story{}, false, err
 	}
 	defer func() {
 		io.Copy(io.Discard, resp.Body)
 		resp.Body.Close()
 	}()
 
-	if resp.StatusCode != 200 {
-		return model.Story{}, fmt.Errorf("request not successful, expected status 200, got %d", resp.StatusCode)
+	if resp.StatusCode == http.StatusNotFound {
+		return model.Story{}, false, nil
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		return model.Story{}, false, fmt.Errorf("request not successful, expected status 200, got %d", resp.StatusCode)
 	}
 
 	itm := Item{}
 	err = json.NewDecoder(resp.Body).Decode(&itm)
 	if err != nil {
-		return model.Story{}, err
+		return model.Story{}, true, err
 	}
 
 	return model.Story{
@@ -66,7 +70,7 @@ func (s *HNScraper) FetchItem(ctx context.Context, refId string) (model.Story, e
 		Title:       itm.Title,
 		Score:       int32(itm.Points),
 		NumComments: int32(itm.NumComments()),
-	}, nil
+	}, true, nil
 }
 
 func (s *HNScraper) FetchItems(ctx context.Context) ([]model.Story, error) {

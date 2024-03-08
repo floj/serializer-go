@@ -21,6 +21,7 @@ type Story struct {
 	Score       int32
 	NumComments int32
 	Scraper     string
+	Deleted     bool
 }
 
 type StoryHistory struct {

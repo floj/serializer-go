@@ -165,11 +165,22 @@ func runScraper(ctx context.Context, scr scraper.Scraper, queries *model.Queries
 	slog.Info("updading recent stories", "num", len(stories))
 
 	for _, story := range stories {
-		itm, err := scr.FetchItem(ctx, story.RefID)
+		itm, found, err := scr.FetchItem(ctx, story.RefID)
 		if err != nil {
 			result.err = append(result.err, err)
 			continue
 		}
+
+		if !found {
+			_, err := queries.MarkStoryDeleted(ctx, story.ID)
+			if err != nil {
+				result.err = append(result.err, err)
+			} else {
+				slog.Info("marked story deleted", "story", story)
+			}
+			continue
+		}
+
 		diff := story.Diff(itm)
 
 		story, err := queries.UpdateStory(ctx, model.UpdateStoryParams{
@@ -181,6 +192,7 @@ func runScraper(ctx context.Context, scr scraper.Scraper, queries *model.Queries
 			UpdatedAt:   scrapeTime,
 			Type:        itm.Type,
 		})
+
 		if err != nil {
 			result.err = append(result.err, err)
 			continue

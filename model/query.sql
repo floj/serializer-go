@@ -12,6 +12,13 @@ UPDATE stories SET
 WHERE id = $7
 RETURNING *;
 
+-- name: MarkStoryDeleted :one
+UPDATE stories SET 
+  deleted = true
+WHERE id = $1
+RETURNING *;
+
+
 -- name: FindByScraperAndRef :many
 SELECT * FROM stories WHERE scraper=$1 AND ref_id=$2;
 
