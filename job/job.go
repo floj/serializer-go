@@ -106,6 +106,7 @@ func runScraper(ctx context.Context, scr scraper.Scraper, queries *model.Queries
 			continue
 		}
 
+		now := time.Now()
 		if len(existing) > 0 {
 			for _, story := range existing {
 				updatedStory, err := queries.UpdateStory(ctx, model.UpdateStoryParams{
@@ -114,6 +115,7 @@ func runScraper(ctx context.Context, scr scraper.Scraper, queries *model.Queries
 					Score:       itm.Score,
 					NumComments: itm.NumComments,
 					Type:        itm.Type,
+					LastSeenFp:  now,
 					ID:          story.ID,
 				})
 				if err != nil {
@@ -188,8 +190,9 @@ func runScraper(ctx context.Context, scr scraper.Scraper, queries *model.Queries
 			Url:         itm.Url,
 			Score:       itm.Score,
 			NumComments: itm.NumComments,
-			Type:        itm.Type,
+			Type:        story.Type,
 			ID:          story.ID,
+			LastSeenFp:  story.LastSeenFp,
 		})
 
 		if err != nil {

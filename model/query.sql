@@ -7,8 +7,9 @@ UPDATE stories SET
   url = $2, 
   score = $3, 
   num_comments = $4,
-  type = $5
-WHERE id = $6
+  type = $5,
+  last_seen_fp = $6
+WHERE id = $7
 RETURNING *;
 
 -- name: MarkStoryDeleted :one

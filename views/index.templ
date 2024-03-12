@@ -140,7 +140,7 @@ templ Story(story model.Story, last int64) {
 			}
 			<br/>
 			<span class="muted">
-				<img class="clock-icon" src="assets/images/clock.svg" width="10"/>{ story.TimeAgo() }
+				<img class="clock-icon" src="assets/images/clock.svg" width="10"/>{ story.TimeAgo() }{ story.TimeOnFP() }
 				<span><a class="comments-link" href={ templ.URL(story.CommentsURL()) } target="_self">{ fmt.Sprintf("%d", story.NumComments) } comments</a></span>
 			</span>
 		</td>

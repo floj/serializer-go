@@ -16,6 +16,7 @@ type Story struct {
 	PublishedAt time.Time
 	UpdatedAt   time.Time
 	CreatedAt   time.Time
+	LastSeenFp  time.Time
 	Title       string
 	Type        string
 	Score       int32

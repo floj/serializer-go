@@ -6,6 +6,7 @@ create table if not exists stories (
   published_at timestamp with time zone not null,
   updated_at timestamp with time zone not null default current_timestamp,
   created_at timestamp with time zone not null default current_timestamp,
+  last_seen_fp timestamp with time zone not null default current_timestamp,
   title text not null,
   type text not null,
   score integer not null,

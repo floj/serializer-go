@@ -2,6 +2,7 @@ package model
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/url"
 	"strings"
 
@@ -39,6 +40,14 @@ func (s *Story) Domain() string {
 
 func (s *Story) TimeAgo() string {
 	return humanize.Time(s.CreatedAt)
+}
+
+func (s *Story) TimeOnFP() string {
+	hoursOnFP := int(s.LastSeenFp.Sub(s.CreatedAt).Hours())
+	if hoursOnFP <= 0 {
+		return ""
+	}
+	return fmt.Sprintf(", for %dh", hoursOnFP)
 }
 
 func (s *Story) LinkURL() string {
