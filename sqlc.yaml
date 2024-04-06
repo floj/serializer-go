@@ -7,4 +7,4 @@ sql:
       go:
         package: "model"
         out: "model"
-        sql_package: "lib/pq"
+        #sql_package: "lib/pq"
