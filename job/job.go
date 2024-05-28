@@ -29,7 +29,8 @@ func Start(db *sql.DB, conf config.Config, scrapers ...scraper.Scraper) (func(fu
 			select {
 			case <-ticker.C:
 				if conf.ScrapeEnabled() {
-					runScrape(db, mu, conf, scrapers...)
+					r, err := runScrape(db, mu, conf, scrapers...)
+					slog.Info("scrape finished", "result", r, "err", err)
 				}
 			case <-quit:
 				ticker.Stop()
@@ -47,13 +48,15 @@ func Start(db *sql.DB, conf config.Config, scrapers ...scraper.Scraper) (func(fu
 type Result struct {
 	New     int
 	Updated int
+	Recent  int
 	Errors  int
 	err     []error
 }
 
-func (r Result) Add(other Result) Result {
+func (r Result) Merge(other Result) Result {
 	r.New += other.New
 	r.Updated += other.Updated
+	r.Recent += other.Recent
 	r.err = append(r.err, other.err...)
 	r.Errors = len(r.err)
 	return r
@@ -76,7 +79,7 @@ func runScrape(db *sql.DB, mu *sync.Mutex, conf config.Config, scrapers ...scrap
 	for _, scraper := range scrapers {
 		slog.Info("running scraper", "scraper", scraper.Name())
 		res := runScraper(ctx, scraper, queries)
-		result.Add(res)
+		result = result.Merge(res)
 	}
 	if len(result.err) > 0 {
 		return result, errors.Join(result.err...)
@@ -85,12 +88,12 @@ func runScrape(db *sql.DB, mu *sync.Mutex, conf config.Config, scrapers ...scrap
 }
 
 func runScraper(ctx context.Context, scr scraper.Scraper, queries *model.Queries) Result {
-	itemsResult := Result{}
+	result := Result{}
 
 	items, err := scr.FetchItems(ctx)
 	if err != nil {
-		itemsResult.err = append(itemsResult.err, err)
-		return itemsResult
+		result.err = append(result.err, err)
+		return result
 	}
 
 	slog.Info("processig stories", "num", len(items))
@@ -121,10 +124,10 @@ func runScraper(ctx context.Context, scr scraper.Scraper, queries *model.Queries
 				})
 				if err != nil {
 					slog.Error("failed to updated story", "story", story, "err", err)
-					itemsResult.err = append(itemsResult.err, err)
+					result.err = append(result.err, err)
 				} else {
 					slog.Debug("updated existing story", "story", updatedStory)
-					itemsResult.Updated++
+					result.Updated++
 				}
 			}
 			continue
@@ -144,15 +147,13 @@ func runScraper(ctx context.Context, scr scraper.Scraper, queries *model.Queries
 
 		if err != nil {
 			slog.Error("failed to create new story", "story", story, "err", err)
-			itemsResult.err = append(itemsResult.err, err)
+			result.err = append(result.err, err)
 		} else {
 			slog.Debug("created new story", "story", story)
-			itemsResult.New++
+			result.New++
 		}
 	}
-	slog.Info("processed stories", "new", itemsResult.New, "updated", itemsResult.Updated)
 
-	recentResult := Result{}
 	// update recent stories that are not on the frontpage anymore
 	now := time.Now()
 	stories, err := queries.FindRecentForUpdate(ctx, model.FindRecentForUpdateParams{
@@ -163,16 +164,15 @@ func runScraper(ctx context.Context, scr scraper.Scraper, queries *model.Queries
 
 	if err != nil {
 		slog.Error("failed to look up recent stories", "err", err)
-		recentResult.err = append(recentResult.err, err)
-		return itemsResult.Add(recentResult)
+		result.err = append(result.err, err)
+		return result
 	}
 
-	slog.Info("updating recent stories", "num", len(stories))
 	for _, story := range stories {
 		itm, found, err := scr.FetchItem(ctx, story.RefID)
 		if err != nil {
 			slog.Error("failed to fetch recent story", "story", story, "err", err)
-			recentResult.err = append(recentResult.err, err)
+			result.err = append(result.err, err)
 			continue
 		}
 
@@ -180,7 +180,7 @@ func runScraper(ctx context.Context, scr scraper.Scraper, queries *model.Queries
 			_, err := queries.MarkStoryDeleted(ctx, story.ID)
 			if err != nil {
 				slog.Error("failed to marked story deleted", "story", story, "err", err)
-				recentResult.err = append(recentResult.err, err)
+				result.err = append(result.err, err)
 			} else {
 				slog.Debug("marked story deleted", "story", story)
 			}
@@ -200,13 +200,13 @@ func runScraper(ctx context.Context, scr scraper.Scraper, queries *model.Queries
 
 		if err != nil {
 			slog.Error("failed to update recent story", "story", story, "err", err)
-			recentResult.err = append(recentResult.err, err)
+			result.err = append(result.err, err)
 		} else {
-			recentResult.Updated++
+			result.Recent++
 			slog.Debug("updated recent story", "story", updatedStory)
 		}
 	}
-	slog.Info("updated recent stories", "num", recentResult.Updated)
+	slog.Info("processed stories", "new", result.New, "updated", result.Updated, "recent", result.Recent, "err", result.Errors)
 
-	return itemsResult.Add(recentResult)
+	return result
 }
