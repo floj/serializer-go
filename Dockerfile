@@ -5,19 +5,26 @@ ENV CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH}
 
 RUN apk add --no-cache git
 
+RUN --mount=type=cache,target=/root/go \
+  --mount=type=cache,target=/root/.cache/go-build \
+  go install github.com/a-h/templ/cmd/templ@latest && \
+  go install github.com/sqlc-dev/sqlc/cmd/sqlc@latest
+
 COPY go.mod go.sum /app/
 WORKDIR /app
-RUN go mod download
+
+RUN --mount=type=cache,target=/root/go \
+  go mod download
 
 COPY . /app
 
 RUN --mount=type=cache,target=/root/go \
-  go install github.com/a-h/templ/cmd/templ@latest && \
-  go install github.com/sqlc-dev/sqlc/cmd/sqlc@latest
+  --mount=type=cache,target=/root/.cache/go-build \
+  sqlc generate && \
+  templ generate
 
-RUN sqlc generate && templ generate
-
-RUN --mount=type=cache,target=/root/.cache/go-build \
+RUN --mount=type=cache,target=/root/go \
+  --mount=type=cache,target=/root/.cache/go-build \
   go build -ldflags '-s -w' -trimpath -v -o /bin/app
 
 FROM alpine:3
