@@ -145,10 +145,11 @@ func runScraper(ctx context.Context, scr scraper.Scraper, queries *model.Queries
 			slog.Error("failed to create new story", "story", story, "err", err)
 			result.err = append(result.err, err)
 		} else {
-			slog.Info("created new story", "story", story)
+			slog.Debug("created new story", "story", story)
 			result.New++
 		}
 	}
+	slog.Info("processed stories", "new", result.New, "updated", result.Updated)
 
 	// update recent stories that are not on the frontpage anymore
 	now := time.Now()
