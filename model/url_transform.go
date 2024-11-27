@@ -6,10 +6,10 @@ import (
 )
 
 var urlTransformer = []URLTransformer{
-	NewFarsideTransformer("twitter.com", "nitter"),
-	NewFarsideTransformer("youtube.com", "piped"),
-	NewFarsideTransformer("reddit.com", "libreddit"),
-	NewFarsideTransformer("medium.com", "scribe"),
+	// NewFarsideTransformer("twitter.com", "nitter"),
+	// NewFarsideTransformer("youtube.com", "piped"),
+	// NewFarsideTransformer("reddit.com", "libreddit"),
+	// NewFarsideTransformer("medium.com", "scribe"),
 }
 
 type URLTransformer interface {
