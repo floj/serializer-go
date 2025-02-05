@@ -1,4 +1,4 @@
-serializer*.db
+serializer*.db*
 serializer-go
 *_templ.go
 *.sql.go

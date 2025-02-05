@@ -1,10 +1,9 @@
 version: "2"
 sql:
-  - engine: "postgresql"
+  - engine: "sqlite"
     queries: "model/query.sql"
     schema: "model/schema.sql"
     gen:
       go:
         package: "model"
         out: "model"
-        #sql_package: "lib/pq"

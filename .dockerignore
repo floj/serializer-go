@@ -1,6 +1,6 @@
 terraform
 .git
-serializer*.db
+serializer-go*.db*
 .envrc
 modd.conf
 build.sh

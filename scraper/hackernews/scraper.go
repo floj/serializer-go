@@ -68,8 +68,8 @@ func (s *HNScraper) FetchItem(ctx context.Context, refId string) (model.Story, b
 		RefID:       refId,
 		Url:         itm.URL,
 		Title:       itm.Title,
-		Score:       int32(itm.Points),
-		NumComments: int32(itm.NumComments()),
+		Score:       int64(itm.Points),
+		NumComments: int64(itm.NumComments()),
 	}, true, nil
 }
 
@@ -126,9 +126,9 @@ func (s *HNScraper) FetchItems(ctx context.Context) ([]model.Story, error) {
 				RefID:       strconv.Itoa(h.StoryID),
 				Title:       h.Title,
 				Type:        t,
-				Score:       int32(h.Points),
+				Score:       int64(h.Points),
 				Scraper:     model.ScraperHN,
-				NumComments: int32(h.NumComments),
+				NumComments: int64(h.NumComments),
 			}
 			stories = append(stories, story)
 		}

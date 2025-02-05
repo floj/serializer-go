@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"log/slog"
+	"strconv"
 	"sync"
 	"time"
 
@@ -87,6 +88,71 @@ func runScrape(db *sql.DB, mu *sync.Mutex, conf config.Config, scrapers ...scrap
 	return result, nil
 }
 
+func recordChanges(ctx context.Context, queries *model.Queries, old model.Story, updated model.Story) {
+	updates := []model.RecordStoryChangeParams{}
+
+	if old.Score != updated.Score {
+		updates = append(updates, model.RecordStoryChangeParams{
+			StoryID: old.ID,
+			Field:   "score",
+			OldVal:  strconv.FormatInt(old.Score, 10),
+			NewVal:  strconv.FormatInt(updated.Score, 10),
+		})
+	}
+
+	if old.NumComments != updated.NumComments {
+		updates = append(updates, model.RecordStoryChangeParams{
+			StoryID: old.ID,
+			Field:   "num_comments",
+			OldVal:  strconv.FormatInt(old.NumComments, 10),
+			NewVal:  strconv.FormatInt(updated.NumComments, 10),
+		})
+	}
+
+	if old.Url != updated.Url {
+		updates = append(updates, model.RecordStoryChangeParams{
+			StoryID: old.ID,
+			Field:   "url",
+			OldVal:  old.Url,
+			NewVal:  updated.Url,
+		})
+	}
+
+	if old.Title != updated.Title {
+		updates = append(updates, model.RecordStoryChangeParams{
+			StoryID: old.ID,
+			Field:   "title",
+			OldVal:  old.Title,
+			NewVal:  updated.Title,
+		})
+	}
+
+	if old.Deleted != updated.Deleted {
+		updates = append(updates, model.RecordStoryChangeParams{
+			StoryID: old.ID,
+			Field:   "deleted",
+			OldVal:  strconv.FormatBool(old.Deleted),
+			NewVal:  strconv.FormatBool(updated.Deleted),
+		})
+	}
+
+	if old.Type != updated.Type {
+		updates = append(updates, model.RecordStoryChangeParams{
+			StoryID: old.ID,
+			Field:   "type",
+			OldVal:  old.Type,
+			NewVal:  updated.Type,
+		})
+	}
+
+	slog.Info("recording updates", "num", len(updates))
+	for _, u := range updates {
+		if _, err := queries.RecordStoryChange(ctx, u); err != nil {
+			slog.Error("could not record story update", "err", err, "update", u)
+		}
+	}
+}
+
 func runScraper(ctx context.Context, scr scraper.Scraper, queries *model.Queries) Result {
 	result := Result{}
 
@@ -113,6 +179,8 @@ func runScraper(ctx context.Context, scr scraper.Scraper, queries *model.Queries
 		now := time.Now()
 		if len(existing) > 0 {
 			for _, story := range existing {
+				recordChanges(ctx, queries, story, itm)
+
 				updatedStory, err := queries.UpdateStory(ctx, model.UpdateStoryParams{
 					Title:       itm.Title,
 					Url:         itm.Url,

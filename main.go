@@ -37,7 +37,10 @@ func envOrDefault(name, def string) string {
 
 func main() {
 	//dbFile := flag.String("database-file", envOrDefault("DATABASE_FILE", "serializer.db"), "path to the database file")
-	dbURL := flag.String("db-uri", envOrDefault("DB_URI", ""), "connection uri for the DB")
+	dbTursoURL := flag.String("db-turso-url", envOrDefault("DB_TURSO_URL", ""), "turso DB URL")
+	dbTursoToken := flag.String("db-turso-token", envOrDefault("DB_TURSO_TOKEN", ""), "turso auth token")
+	dbTursoLocalPath := flag.String("db-turso-local-path", envOrDefault("DB_TURSO_LOCAL_PATH", "serializer-go.db"), "turso local db path")
+
 	scrapeInterval := flag.String("scrape-interval", envOrDefault("SCRAPE_INTERVAL", "1m"), "how often to scrape, set to 0 to disable scrape job")
 	scrapeTimeout := flag.String("scrape-timeout", envOrDefault("SCRAPE_TIMEOUT", "1m"), "max time one scrape job is allowed to run set to 0 to for no limit")
 	cookieInsecure := flag.Bool("cookie-insecure", false, "set secure flag on cookie")
@@ -62,7 +65,11 @@ func main() {
 		panic("invalid log level: " + *logLevel)
 	}
 
-	conf, err := config.Create(*dbURL, *scrapeInterval, *scrapeTimeout, !*cookieInsecure)
+	dbConf, err := config.CreateDB(*dbTursoURL, *dbTursoToken, *dbTursoLocalPath)
+	if err != nil {
+		panic(err)
+	}
+	conf, err := config.Create(dbConf, *scrapeInterval, *scrapeTimeout, !*cookieInsecure)
 	if err != nil {
 		panic(err)
 	}
@@ -89,15 +96,12 @@ func unreadCount(stories []model.Story, last int64) int {
 }
 
 func run(conf config.Config) error {
-	if conf.DBURI == "" {
-		return fmt.Errorf("db-uri is mandatory but was not set")
-	}
-
-	db, err := model.InitDB(conf)
+	db, finalizer, err := model.InitDB(conf.DB)
 	if err != nil {
 		return fmt.Errorf("could not initialize DB connection: %w", err)
 	}
 	defer db.Close()
+	defer finalizer()
 
 	scrapers, err := loadScrapers(conf)
 	if err != nil {
