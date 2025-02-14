@@ -1,10 +1,9 @@
-FROM --platform=${BUILDPLATFORM} golang:1 AS builder
+FROM --platform=${BUILDPLATFORM} golang:1-alpine as builder
 ARG TARGETOS
 ARG TARGETARCH
-ENV GOOS=${TARGETOS} GOARCH=${TARGETARCH}
+ENV CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH}
 
-RUN apt update && \
-  apt install -y git
+RUN apk add --no-cache git
 
 RUN --mount=type=cache,target=/root/go \
   --mount=type=cache,target=/root/.cache/go-build \
@@ -28,12 +27,12 @@ RUN --mount=type=cache,target=/root/go \
   --mount=type=cache,target=/root/.cache/go-build \
   go build -ldflags '-s -w' -trimpath -v -o /bin/app
 
-FROM debian:12-slim
+FROM alpine:3
 
-RUN apt update && \
-  apt install -y tini curl
-RUN groupadd --system -g 105 serializer && \
-  useradd --system -d /home/serializer -m -u 105 -g serializer serializer
+RUN apk upgrade --no-cache && \
+  apk add --no-cache tini bash ca-certificates curl
+RUN addgroup -S serializer && \
+  adduser -S -G serializer serializer
 RUN mkdir -p /app/data /app/bin && \
   chown -R serializer:serializer /app/data
 
@@ -45,7 +44,6 @@ WORKDIR /app
 COPY --from=builder /bin/app /app/app
 
 USER serializer
-RUN id
 WORKDIR /app
 HEALTHCHECK --interval=30s --timeout=3s CMD ["curl", "-sqf", "http://localhost:3000/healthz"]
-CMD ["/usr/bin/tini", "--", "/app/app"]
+CMD ["/sbin/tini", "--", "/app/app"]

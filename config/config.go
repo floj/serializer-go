@@ -5,16 +5,8 @@ import (
 	"time"
 )
 
-type DbConfig struct {
-	Type         string
-	RemoteURL    string
-	AuthToken    string
-	LocalPath    string
-	SyncInterval time.Duration
-}
-
 type Config struct {
-	DB             DbConfig
+	DBURI          string
 	ScrapeInterval time.Duration
 	ScrapeTimeout  time.Duration
 	CookieSecure   bool
@@ -28,25 +20,9 @@ func (c *Config) HasScrapeTimeout() bool {
 	return c.ScrapeTimeout > time.Duration(0)
 }
 
-func CreateDB(dbUrl, authToken, localPath string) (DbConfig, error) {
-	if dbUrl == "" {
-		return DbConfig{}, fmt.Errorf("dbUrl must be set")
-	}
-	if authToken == "" {
-		return DbConfig{}, fmt.Errorf("dbAuthToken must be set")
-	}
-	return DbConfig{
-		Type:         "turso",
-		RemoteURL:    dbUrl,
-		AuthToken:    authToken,
-		LocalPath:    localPath,
-		SyncInterval: 15 * time.Minute,
-	}, nil
-}
-
-func Create(db DbConfig, scrapeInterval, scrapeTimeout string, cookieSecure bool) (Config, error) {
+func Create(dbURI, scrapeInterval, scrapeTimeout string, cookieSecure bool) (Config, error) {
 	c := Config{
-		DB:           db,
+		DBURI:        dbURI,
 		CookieSecure: cookieSecure,
 	}
 	{
